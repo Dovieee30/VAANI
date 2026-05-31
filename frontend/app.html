@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VAANI — Live Interpreter</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;1,300&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --color-accent: #C94E2B;
+      --color-ink: #1A1916;
+      --color-bg: #F5F3EE;
+      --color-surface: #FFFFFF;
+      --color-teal: #1A5C6B;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: var(--color-ink);
+      color: white;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .app-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    /* Views */
+    .view-panel {
+      position: absolute;
+      inset: 0;
+      display: none; /* hidden by default */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-surface);
+      overflow: hidden;
+    }
+    .view-panel.active {
+      display: flex;
+    }
+
+    /* Sign View (Camera) */
+    .view-sign {
+      background: #000;
+    }
+
+    #demo-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #landmarks-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      transform: scaleX(-1);
+    }
+
+    .demo-camera-ui {
+      position: absolute;
+      bottom: 200px; /* Moved up to make room for shutter button */
+      left: 0; right: 0;
+      z-index: 5;
+      padding: 30px;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    #recognized-text {
+      font-size: 2.5rem;
+      font-family: 'Fraunces', serif;
+      color: white;
+      text-shadow: 0 2px 16px rgba(0,0,0,1);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    /* Speak View (Avatar) */
+    .avatar-placeholder {
+      font-size: 8rem;
+      opacity: 0.8;
+      animation: bounce 2s infinite ease-in-out;
+      margin-bottom: 120px;
+    }
+
+    .speech-transcript {
+      text-align: center;
+      font-size: 1.8rem;
+      color: var(--color-ink);
+      background: var(--color-bg);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border: 1px solid rgba(26, 25, 22, 0.1);
+      max-width: 80%;
+      margin-bottom: 200px; /* Moved up to make room for mic button */
+    }
+
+    /* Floating Action Buttons */
+    .cam-button, .mic-button {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: none;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .cam-button {
+      background: var(--color-teal);
+      box-shadow: 0 6px 16px rgba(26, 92, 107, 0.3);
+    }
+
+    .mic-button {
+      background: var(--color-accent);
+      box-shadow: 0 6px 16px rgba(201, 78, 43, 0.3);
+    }
+
+    /* Toggle Tabs */
+    .tabs-container {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      padding: 6px;
+      border-radius: 99px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      padding: 12px 32px;
+      border-radius: 99px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--color-surface);
+      color: var(--color-ink);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    /* Back Button */
+    .btn-back {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 110;
+      background: rgba(0,0,0,0.5);
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 99px;
+      font-weight: 700;
+      backdrop-filter: blur(8px);
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+  </style>
+</head>
+<body>
+
+  <a href="/" class="btn-back">← Back</a>
+
+  <div class="app-container">
+    
+    <!-- Sign View (Camera) -->
+    <div id="view-sign" class="view-panel view-sign active">
+      <button class="cam-button" aria-label="Tap to record sign">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="23 7 16 12 23 17 23 7"></polygon>
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+        </svg>
+      </button>
+      <video id="demo-video" autoplay playsinline muted></video>
+      <canvas id="landmarks-canvas"></canvas>
+      <div class="demo-camera-ui">
+        <div id="recognized-text">Point camera to sign</div>
+      </div>
+    </div>
+
+    <!-- Speak View (Avatar/Text) -->
+    <div id="view-speak" class="view-panel view-speak">
+      <button class="mic-button" aria-label="Tap to speak">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+      </button>
+      <div class="avatar-placeholder"></div>
+      <div class="speech-transcript">"Hello, how can I help you?"</div>
+    </div>
+
+    <!-- Toggle Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" data-target="view-sign">Sign</button>
+      <button class="tab-btn" data-target="view-speak">Speak</button>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/demo.js"></script>
+</body>
+</html>

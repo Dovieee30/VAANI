@@ -1,0 +1,67 @@
+:root {
+  /* ─── Color palette ─── */
+  --color-bg:         #F5F3EE;         /* warm off-white — feels tactile, not sterile */
+  --color-bg-deep:    #ECEAE4;         /* slightly darker warm surface */
+  --color-surface:    #FFFFFF;
+  --color-ink:        #1A1916;         /* near-black, warm */
+  --color-ink-mid:    #4A4843;         /* body text */
+  --color-ink-muted:  #8A8881;         /* captions, labels */
+  --color-border:     rgba(26, 25, 22, 0.12);
+  --color-border-mid: rgba(26, 25, 22, 0.22);
+
+  /* Accent — deep orange-red, ISL-flag inspired */
+  --color-accent:     #C94E2B;
+  --color-accent-light: #F3E0DA;
+  --color-accent-dark: #8F2E15;
+
+  /* Secondary — deep teal, trust */
+  --color-teal:       #1A5C6B;
+  --color-teal-light: #D8EEF1;
+
+  /* Green — success/go */
+  --color-green:      #2E7D52;
+  --color-green-light:#D5EDE1;
+
+  /* ─── Typography ─── */
+  --font-display:   'Fraunces', Georgia, serif;
+  --font-body:      'DM Sans', system-ui, sans-serif;
+
+  /* ─── Spacing scale ─── */
+  --space-xs:   0.25rem;   /* 4px */
+  --space-sm:   0.5rem;    /* 8px */
+  --space-md:   1rem;      /* 16px */
+  --space-lg:   1.5rem;    /* 24px */
+  --space-xl:   2rem;      /* 32px */
+  --space-2xl:  3rem;      /* 48px */
+  --space-3xl:  5rem;      /* 80px */
+  --space-4xl:  8rem;      /* 128px */
+
+  /* ─── Border radius ─── */
+  --radius-sm:   4px;
+  --radius-md:   10px;
+  --radius-lg:   18px;
+  --radius-xl:   28px;
+  --radius-full: 9999px;
+
+  /* ─── Shadow ─── */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.09), 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-lg:  0 16px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+
+  /* ─── Transitions ─── */
+  --ease-out:   cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in:    cubic-bezier(0.64, 0, 0.78, 0);
+  --transition: 260ms var(--ease-out);
+}
+
+/* ─── Typography assignments ─── */
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--color-ink-mid);
+  background-color: var(--color-bg);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
