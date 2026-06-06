@@ -1,0 +1,12 @@
+# Backend ignores
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+models/include/
+data/vosk-model-*/
+data/isign/
+temp/
+*.mp3
+*.wav
