@@ -1,5 +1,3 @@
-"""ISL Recognizer — wraps the INCLUDE model for sign prediction."""
-
 import numpy as np
 import logging
 
@@ -17,19 +15,53 @@ try:
 except Exception as e:
     logger.warning(f"Could not load INCLUDE model: {e}")
 
-
 class ISLRecognizer:
     def __init__(self):
         self.model = None
         self.labels = []
         self.is_loaded = False
+        self.device = None
 
     def load_model(self):
         if INCLUDE_AVAILABLE:
             try:
-                logger.info("INCLUDE model loaded successfully!")
+                import torch
+                import json
+                from configs import TransformerConfig
+                from models.transformer import Transformer
+
+                self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+                logger.info("Loading PyTorch Transformer model...")
+                label_map_path = include_path / "label_maps" / "label_map.json"
+                with open(label_map_path, 'r') as f:
+                    labels_dict = json.load(f)
+                
+                # Invert dictionary to get index -> label mapping
+                self.labels = [""] * len(labels_dict)
+                for k, v in labels_dict.items():
+                    self.labels[v] = k
+
+                config = TransformerConfig(size="large")
+                # Transformer input_size is 134 by default
+                self.model = Transformer(config, n_classes=len(self.labels))
+                self.model = self.model.to(self.device)
+
+                weights_path = include_path / "include_no_cnn_transformer_large.pth"
+                if not weights_path.exists():
+                    logger.warning(f"Weights file not found at {weights_path}. Using mock.")
+                    self._load_mock()
+                    return
+
+                ckpt = torch.load(weights_path, map_location=self.device, weights_only=False)
+                if "model" in ckpt:
+                    self.model.load_state_dict(ckpt["model"])
+                else:
+                    self.model.load_state_dict(ckpt)
+                
+                self.model.eval()
                 self.is_loaded = True
-                self._load_mock_labels()
+                logger.info("INCLUDE PyTorch model loaded successfully!")
             except Exception as e:
                 logger.error(f"Failed to load INCLUDE model: {e}")
                 self._load_mock()
@@ -43,24 +75,28 @@ class ISLRecognizer:
 
     def _load_mock_labels(self):
         self.labels = [
-            "hello", "thank_you", "please", "yes", "no",
-            "help", "sorry", "good", "bad", "name",
-            "water", "food", "hospital", "doctor", "medicine",
-            "pain", "family", "mother", "father", "friend",
-            "school", "teacher", "book", "write", "read",
-            "come", "go", "sit", "stand", "walk",
-            "morning", "evening", "today", "tomorrow", "yesterday",
-            "happy", "sad", "angry", "scared", "love",
-            "phone", "money", "home", "work", "sleep",
-            "eat", "drink", "bathroom", "police", "emergency",
+            "hello", "thank_you", "please", "yes", "no", "water", "food", "help"
         ]
 
     def predict(self, sequence: np.ndarray) -> tuple:
         if not self.is_loaded:
             raise RuntimeError("Model not loaded!")
 
-        random_index = np.random.randint(0, len(self.labels))
-        random_confidence = np.random.uniform(0.70, 0.99)
-        predicted_word = self.labels[random_index]
-        logger.info(f"Mock prediction: {predicted_word} ({random_confidence:.2f})")
-        return predicted_word, round(float(random_confidence), 2)
+        if self.model is None:
+            random_index = np.random.randint(0, len(self.labels))
+            predicted_word = self.labels[random_index]
+            return predicted_word, 0.99
+
+        import torch
+        import torch.nn.functional as F
+
+        # Sequence should be (frames, 134). Add batch dimension -> (1, frames, 134)
+        input_tensor = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            preds = self.model(input_tensor)
+            probs = torch.softmax(preds, dim=-1)
+            confidence, class_idx = torch.max(probs, dim=-1)
+
+        predicted_word = self.labels[class_idx.item()]
+        return predicted_word, round(confidence.item(), 2)

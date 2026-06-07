@@ -26,7 +26,7 @@ TEMP_DIR = BASE_DIR / "temp"
 TEMP_DIR.mkdir(exist_ok=True)
 
 # ── Model Parameters ──────────────────────────────────────
-NUM_FRAMES = 30              # Frames per sign sequence
+NUM_FRAMES = 169             # Frames per sign sequence (INCLUDE model expects 169)
 NUM_LANDMARKS = 543          # MediaPipe Holistic landmarks
 LANDMARK_DIMS = 1662         # 33*4 + 468*3 + 21*3 + 21*3
 INCLUDE_CLASSES = 263        # INCLUDE vocabulary size

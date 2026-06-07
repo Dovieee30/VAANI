@@ -19,6 +19,7 @@ export class MediaPipeExtractor {
     this.maxFrames = 30;
     
     this.onSequenceReady = null; // Callback when 30 frames are ready
+    this.isPaused = false;
   }
 
   async initialize() {
@@ -85,13 +86,25 @@ export class MediaPipeExtractor {
 
   startRecording(callback) {
     this.isRecording = true;
+    this.isPaused = false;
     this.frameBuffer = [];
     this.onSequenceReady = callback;
     console.log("Started recording a sign sequence...");
   }
 
+  pauseRecording() {
+    this.isPaused = true;
+    console.log("Paused recording...");
+  }
+
+  resumeRecording() {
+    this.isPaused = false;
+    console.log("Resumed recording...");
+  }
+
   stopRecording() {
     this.isRecording = false;
+    this.isPaused = false;
   }
 
   async predictWebcam() {
@@ -119,8 +132,8 @@ export class MediaPipeExtractor {
     this.canvasCtx.save();
     this.canvasCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 
-    // If we are recording, save the flat landmarks
-    if (this.isRecording) {
+    // If we are recording and not paused, save the flat landmarks
+    if (this.isRecording && !this.isPaused) {
       const flatFrame = this.flattenLandmarks(results);
       this.frameBuffer.push(flatFrame);
       
@@ -128,7 +141,7 @@ export class MediaPipeExtractor {
         if (this.onSequenceReady) {
           this.onSequenceReady(this.frameBuffer); // Send 30 frames
         }
-        this.frameBuffer = []; // Reset buffer
+        this.frameBuffer = []; // Reset buffer but keep recording
       }
     }
 
@@ -185,7 +198,7 @@ export class MediaPipeExtractor {
     
     // 2. Face Landmarks (468 * 3 = 1404)
     if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-      results.faceLandmarks[0].forEach(l => {
+      results.faceLandmarks[0].slice(0, 468).forEach(l => {
         frameData.push(l.x, l.y, l.z);
       });
     } else {
