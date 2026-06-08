@@ -39,24 +39,26 @@ class ISignLookup:
         self.is_loaded = True
 
     def _load_mock_index(self):
+        placeholder_vid = "https://www.w3schools.com/html/mov_bbb.mp4"
         self.word_index = {
-            "hello": "/videos/hello.mp4", "namaste": "/videos/namaste.mp4",
-            "water": "/videos/water.mp4", "food": "/videos/food.mp4",
-            "doctor": "/videos/doctor.mp4", "hospital": "/videos/hospital.mp4",
-            "help": "/videos/help.mp4", "yes": "/videos/yes.mp4",
-            "no": "/videos/no.mp4", "please": "/videos/please.mp4",
-            "sorry": "/videos/sorry.mp4", "good": "/videos/good.mp4",
-            "morning": "/videos/morning.mp4", "mother": "/videos/mother.mp4",
-            "father": "/videos/father.mp4", "thank_you": "/videos/thank_you.mp4",
+            "hello": placeholder_vid, "namaste": placeholder_vid,
+            "water": placeholder_vid, "food": placeholder_vid,
+            "doctor": placeholder_vid, "hospital": placeholder_vid,
+            "help": placeholder_vid, "yes": placeholder_vid,
+            "no": placeholder_vid, "please": placeholder_vid,
+            "sorry": placeholder_vid, "good": placeholder_vid,
+            "morning": placeholder_vid, "mother": placeholder_vid,
+            "father": placeholder_vid, "thank_you": placeholder_vid,
         }
         self.sentence_index = {
-            "good morning": "/videos/good_morning.mp4",
-            "thank you very much": "/videos/thank_you_very_much.mp4",
+            "good morning": placeholder_vid,
+            "thank you very much": placeholder_vid,
         }
 
     def _load_alphabet(self):
+        placeholder_vid = "https://www.w3schools.com/html/mov_bbb.mp4"
         for letter in "abcdefghijklmnopqrstuvwxyz":
-            self.alphabet_videos[letter] = f"/videos/alphabet/{letter}.mp4"
+            self.alphabet_videos[letter] = placeholder_vid
 
     def find(self, text: str) -> dict:
         text = text.lower().strip()
