@@ -82,30 +82,47 @@ async def lifespan(app: FastAPI):
     
     STARTUP: Load all AI models into memory (RAM).
     SHUTDOWN: Clean up resources.
-    
-    We load models at startup so they're ready instantly when
-    a request comes in. Without this, the first request would
-    be very slow (waiting for models to load).
     """
+    import threading
     # ── STARTUP ──
     logger.info("=" * 60)
     logger.info("  VAANI Backend Starting Up...")
     logger.info("=" * 60)
     
-    # Load ISL recognition model
-    logger.info("Loading ISL recognizer (INCLUDE model)...")
-    recognizer.load_model()
+    # CRITICAL: Import torch in the MAIN thread before starting the background thread.
+    # If torch is imported for the first time inside a worker thread on Windows, 
+    # it can cause an indefinite deadlock in C++ multi-threading initialization.
+    try:
+        import torch
+        logger.info("Torch pre-imported successfully in main thread.")
+    except ImportError:
+        pass
     
-    # Load speech recognition models
-    logger.info("Loading speech recognition (Vosk)...")
-    asr_engine.load_models()
+    def load_models_bg():
+        try:
+            # Load ISL recognition model
+            logger.info("Loading ISL recognizer (INCLUDE model) in background...")
+            recognizer.load_model()
+            
+            # Load speech recognition models
+            logger.info("Loading speech recognition (Vosk) in background...")
+            asr_engine.load_models()
+            
+            # Load iSign video index
+            logger.info("Loading iSign video index in background...")
+            isign_lookup.load_index(str(ISIGN_CSV_PATH))
+            
+            logger.info("=" * 60)
+            logger.info("  All models loaded successfully! ✅")
+            logger.info("=" * 60)
+        except Exception as e:
+            logger.error(f"Error loading models in background: {e}")
+
+    # Start loading models in a separate daemon thread to avoid blocking server or deadlocking
+    t = threading.Thread(target=load_models_bg, daemon=True)
+    t.start()
     
-    # Load iSign video index
-    logger.info("Loading iSign video index...")
-    isign_lookup.load_index(str(ISIGN_CSV_PATH))
-    
-    logger.info("=" * 60)
-    logger.info("  VAANI Backend Ready! ✅")
+    logger.info("  VAANI Backend Ready! (Models are loading in the background)")
     logger.info("  → API docs: http://localhost:8000/docs")
     logger.info("=" * 60)
     

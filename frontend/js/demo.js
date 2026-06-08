@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const confidence = Math.round(predictData.confidence * 100);
 
         if (predictData.warning || predictData.confidence < 0.5) {
-          recognizedText.innerText = `No sign detected (${confidence}%)`;
+          recognizedText.innerText = `Low Confidence: ${sign.toUpperCase()} (${confidence}%)`;
           return; // Do not speak low confidence noise
         }
 

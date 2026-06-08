@@ -8,20 +8,49 @@ from config import NUM_FRAMES, LANDMARK_DIMS
 
 def extract_include_features(frame: np.ndarray) -> np.ndarray:
     features = []
+    
+    # --- DYNAMIC SPATIAL NORMALIZATION ---
+    # The INCLUDE dataset has signers perfectly framed. We need to shift and scale
+    # the user's live webcam coordinates to match that exact framing.
+    
+    # Base reference points from raw normalized [0, 1] frame
+    nose_x = frame[0*4]
+    nose_y = frame[0*4 + 1]
+    
+    shoulder_l_x = frame[11*4]
+    shoulder_r_x = frame[12*4]
+    
+    # Calculate scale factor to force shoulder width to ~0.22 (which is ~420 pixels on 1920 canvas)
+    shoulder_width = abs(shoulder_l_x - shoulder_r_x)
+    if shoulder_width < 0.05: 
+        shoulder_width = 0.22 # Fallback if shoulders not detected well
+        
+    scale_factor = 0.22 / shoulder_width
+    
+    # Helper to shift, scale, and project to 1920x1080
+    def norm_point(x, y):
+        nx = (x - nose_x) * scale_factor
+        ny = (y - nose_y) * scale_factor
+        # Shift to target nose position (0.5 center X, 0.3 top Y)
+        return (0.5 + nx) * 1920.0, (0.3 + ny) * 1080.0
+
     # 1. 25 pose landmarks: x, y (interleaved)
     for i in range(25):
-        features.append(frame[i*4] * 1920.0)       # pose_x
-        features.append(frame[i*4 + 1] * 1080.0)   # pose_y
+        px, py = norm_point(frame[i*4], frame[i*4 + 1])
+        features.append(px)
+        features.append(py)
         
     # 2. 21 left_hand landmarks: x, y
     for i in range(21):
-        features.append(frame[1536 + i*3] * 1920.0)      # left_hand_x
-        features.append(frame[1536 + i*3 + 1] * 1080.0)  # left_hand_y
+        hx, hy = norm_point(frame[1536 + i*3], frame[1536 + i*3 + 1])
+        features.append(hx)
+        features.append(hy)
         
     # 3. 21 right_hand landmarks: x, y
     for i in range(21):
-        features.append(frame[1599 + i*3] * 1920.0)      # right_hand_x
-        features.append(frame[1599 + i*3 + 1] * 1080.0)  # right_hand_y
+        hx, hy = norm_point(frame[1599 + i*3], frame[1599 + i*3 + 1])
+        features.append(hx)
+        features.append(hy)
         
     return np.array(features, dtype=np.float32)
 

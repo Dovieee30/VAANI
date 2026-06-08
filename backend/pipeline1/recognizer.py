@@ -27,8 +27,8 @@ class ISLRecognizer:
             try:
                 import torch
                 import json
-                from configs import TransformerConfig
-                from models.transformer import Transformer
+                from configs import LstmConfig
+                from models.lstm import LSTM
 
                 self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -42,12 +42,11 @@ class ISLRecognizer:
                 for k, v in labels_dict.items():
                     self.labels[v] = k
 
-                config = TransformerConfig(size="large")
-                # Transformer input_size is 134 by default
-                self.model = Transformer(config, n_classes=len(self.labels))
+                config = LstmConfig()
+                self.model = LSTM(config, n_classes=len(self.labels))
                 self.model = self.model.to(self.device)
 
-                weights_path = include_path / "include_no_cnn_transformer_large.pth"
+                weights_path = include_path / "include_no_cnn_lstm.pth"
                 if not weights_path.exists():
                     logger.warning(f"Weights file not found at {weights_path}. Using mock.")
                     self._load_mock()
