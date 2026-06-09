@@ -14,8 +14,8 @@ INCLUDE_MODEL_DIR = BASE_DIR / "models" / "include"
 INCLUDE_WEIGHTS_PATH = INCLUDE_MODEL_DIR / "weights"
 
 # Vosk speech recognition models
-VOSK_MODEL_HI = BASE_DIR / "data" / "vosk-model-small-hi" / "vosk-model-hi"
-VOSK_MODEL_EN = BASE_DIR / "data" / "vosk-model-en"
+VOSK_MODEL_HI = BASE_DIR / "data" / "vosk-model-small-hi-0.22"
+VOSK_MODEL_EN = BASE_DIR / "data" / "vosk-model-small-en-us-0.15"
 
 # iSign dataset
 ISIGN_CSV_PATH = BASE_DIR / "data" / "isign" / "isign_index.csv"

@@ -38,10 +38,11 @@ HOW TO RUN THIS SERVER:
     main:app  = look in main.py for the variable called 'app'
 """
 
+import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
@@ -295,8 +296,50 @@ async def listen(audio: UploadFile = File(...), language: str = "hi"):
         result = await asr_engine.recognize(audio_bytes, language)
         return result
     except Exception as e:
-        logger.error(f"/listen error: {e}")
         raise HTTPException(status_code=500, detail=f"Speech recognition failed: {e}")
+
+
+@app.websocket("/ws/listen")
+async def websocket_listen(websocket: WebSocket, language: str = "en"):
+    """
+    Real-time streaming speech recognition.
+    Receives raw 16kHz PCM audio bytes and sends back JSON partial/final results.
+    """
+    await websocket.accept()
+    
+    recognizer = asr_engine.create_stream_recognizer(language)
+    if not recognizer:
+        avail = list(asr_engine.models.keys())
+        await websocket.close(code=1011, reason=f"VOSK:{asr_engine.is_loaded} Lang:{language} Avail:{avail}")
+        return
+
+    try:
+        while True:
+            data = await websocket.receive_bytes()
+            
+            # Feed raw PCM chunk to Vosk
+            if recognizer.AcceptWaveform(data):
+                res = json.loads(recognizer.Result())
+                text = res.get("text", "")
+                if text:
+                    await websocket.send_json({"type": "final", "text": text})
+            else:
+                res = json.loads(recognizer.PartialResult())
+                partial = res.get("partial", "")
+                if partial:
+                    await websocket.send_json({"type": "partial", "text": partial})
+    except WebSocketDisconnect:
+        # Flush any remaining audio in Vosk's buffer
+        try:
+            res = json.loads(recognizer.FinalResult())
+            text = res.get("text", "")
+            if text:
+                await websocket.send_json({"type": "final", "text": text})
+        except Exception:
+            pass  # WebSocket might already be closed
+        logger.info("WebSocket disconnected.")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
 
 
 @app.post("/translate")

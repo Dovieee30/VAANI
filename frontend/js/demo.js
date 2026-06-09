@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const viewPanels = document.querySelectorAll('.view-panel');
 
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = 'http://127.0.0.1:8000';
 
   // Audio Queue
   const audioQueue = [];
@@ -192,90 +192,210 @@ document.addEventListener('DOMContentLoaded', async () => {
   const signPlayer = document.getElementById('sign-player');
   const speechTranscript = document.getElementById('speech-transcript');
 
-  let mediaRecorder = null;
-  let audioChunks = [];
+  let audioContext = null;
+  let audioProcessor = null;
+  let audioSource = null;
+  let ws = null;
+  let finalResultText = "";
+  let currentPartialText = "";
+
+  let currentStream = null;
+  let isConnecting = false;
   let isRecordingAudio = false;
 
   if (micButton) {
     const startRecording = async (e) => {
-      e.preventDefault();
-      if (isRecordingAudio) return;
+      if (e) e.preventDefault();
+      console.log("Mic button clicked! Starting recording...");
+      if (isRecordingAudio || isConnecting) {
+          console.log("Ignored start: isRecordingAudio=" + isRecordingAudio + ", isConnecting=" + isConnecting);
+          return;
+      }
+      isConnecting = true;
+      speechTranscript.innerText = "Requesting mic...";
       
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunks.push(e.data);
+        currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Mic access granted.");
+        
+        // Initialize AudioContext at 16kHz
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        audioSource = audioContext.createMediaStreamSource(currentStream);
+        audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+        
+        // Connect WebSocket
+        ws = new WebSocket('ws://127.0.0.1:8000/ws/listen?language=en');
+        finalResultText = "";
+        currentPartialText = "";
+        let wsErrorOccurred = false;
+        
+        ws.onopen = () => {
+          console.log("WebSocket connected.");
+          
+          // Connect nodes to start capturing without causing feedback echo
+          const gainNode = audioContext.createGain();
+          gainNode.gain.value = 0; // Mute the output to speakers
+          
+          audioSource.connect(audioProcessor);
+          audioProcessor.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          isRecordingAudio = true;
+          isConnecting = false;
+          micButton.style.background = '#ff3b30'; // Red when recording
+          micButton.style.transform = 'scale(0.9)'; // Visual feedback
+          speechTranscript.innerText = "Listening... (Tap again to stop)";
+        };
+        
+        ws.onerror = (error) => {
+          console.error("WebSocket Error:", error);
+          wsErrorOccurred = true;
+          speechTranscript.innerText = "Error connecting to server. Is backend running?";
+          isRecordingAudio = false;
+          isConnecting = false;
+        };
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'partial') {
+            currentPartialText = data.text;
+            let display = finalResultText;
+            if (currentPartialText) display += (display ? " " : "") + currentPartialText;
+            speechTranscript.innerText = display ? `"${display}"...` : "Listening...";
+          } else if (data.type === 'final') {
+            finalResultText += (finalResultText ? " " : "") + data.text;
+            currentPartialText = "";
+            speechTranscript.innerText = `"${finalResultText}"`;
+          }
         };
 
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          await processAudio(audioBlob);
+        ws.onclose = () => {
+            console.log("WebSocket closed.");
+            isRecordingAudio = false;
+            isConnecting = false;
+            if (wsErrorOccurred) return; // Don't overwrite the error message
+            
+            // Use whatever text we have (final + any lingering partial)
+            let combined = finalResultText;
+            if (currentPartialText && !combined.endsWith(currentPartialText)) {
+                combined += (combined ? " " : "") + currentPartialText;
+            }
+            if (combined.trim()) {
+               speechTranscript.innerText = "Processing...";
+               lookupText(combined.trim());
+            } else {
+               speechTranscript.innerText = "No speech detected. Tap to try again.";
+            }
         };
-
-        mediaRecorder.start();
-        isRecordingAudio = true;
-        micButton.style.background = '#ff3b30'; // Red when recording
-        micButton.style.transform = 'scale(0.9)'; // Visual feedback
-        speechTranscript.innerText = "Listening... (Release to send)";
+        
+        let audioLogCounter = 0;
+        audioProcessor.onaudioprocess = (e) => {
+          if (!isRecordingAudio || ws.readyState !== WebSocket.OPEN) return;
+          const inputData = e.inputBuffer.getChannelData(0);
+          
+          // Debug: log volume and sample rate periodically
+          audioLogCounter++;
+          if (audioLogCounter % 20 === 1) {
+            let maxVal = 0, sum = 0;
+            for (let i = 0; i < inputData.length; i++) {
+              const abs = Math.abs(inputData[i]);
+              sum += abs;
+              if (abs > maxVal) maxVal = abs;
+            }
+            const avg = sum / inputData.length;
+            console.log(`[Audio] sampleRate=${audioContext.sampleRate}, bufferLen=${inputData.length}, avgLevel=${avg.toFixed(5)}, maxLevel=${maxVal.toFixed(4)}`);
+          }
+          
+          // Proper resampling to 16kHz using linear interpolation
+          const actualRate = audioContext.sampleRate;
+          const targetRate = 16000;
+          
+          let pcm16;
+          if (Math.abs(actualRate - targetRate) < 100) {
+            // Already at ~16kHz, just convert to Int16
+            pcm16 = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+              const s = Math.max(-1, Math.min(1, inputData[i]));
+              pcm16[i] = s * 0x7FFF;
+            }
+          } else {
+            // Resample using linear interpolation (much better than decimation)
+            const ratio = actualRate / targetRate;
+            const outputLen = Math.floor(inputData.length / ratio);
+            pcm16 = new Int16Array(outputLen);
+            for (let i = 0; i < outputLen; i++) {
+              const srcIdx = i * ratio;
+              const idx0 = Math.floor(srcIdx);
+              const idx1 = Math.min(idx0 + 1, inputData.length - 1);
+              const frac = srcIdx - idx0;
+              const sample = inputData[idx0] + frac * (inputData[idx1] - inputData[idx0]);
+              const clamped = Math.max(-1, Math.min(1, sample));
+              pcm16[i] = clamped * 0x7FFF;
+            }
+          }
+          
+          ws.send(pcm16.buffer);
+        };
+        
       } catch (err) {
-        console.error("Microphone access denied", err);
-        speechTranscript.innerText = "Microphone access denied.";
+        console.error("Microphone error:", err);
+        speechTranscript.innerText = "Microphone error. Please allow permissions.";
+        isConnecting = false;
       }
     };
 
     const stopRecording = (e) => {
-      e.preventDefault();
+      if (e) e.preventDefault();
       if (!isRecordingAudio) return;
       
-      mediaRecorder.stop();
       isRecordingAudio = false;
       micButton.style.background = ''; // Reset to default
       micButton.style.transform = 'scale(1)';
       speechTranscript.innerText = "Processing...";
       
-      // Stop all tracks to release mic
-      if (mediaRecorder && mediaRecorder.stream) {
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      // Stop audio capture first
+      if (audioProcessor) {
+        audioProcessor.disconnect();
+        audioProcessor = null;
       }
+      if (audioSource) {
+        audioSource.disconnect();
+        audioSource = null;
+      }
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      
+      // Wait a bit for Vosk to process remaining audio, then close WebSocket
+      setTimeout(() => {
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+      }, 500);
     };
 
-    // Mobile touch events (Push-to-Talk)
-    micButton.addEventListener('touchstart', startRecording, {passive: false});
-    micButton.addEventListener('touchend', stopRecording);
-    micButton.addEventListener('touchcancel', stopRecording);
-    
-    // Desktop mouse events (Push-to-Talk)
-    micButton.addEventListener('mousedown', startRecording);
-    window.addEventListener('mouseup', stopRecording); // Attach to window in case cursor moves off button
+    // Toggle recording on click
+    micButton.addEventListener('click', (e) => {
+      if (e) e.preventDefault();
+      if (isRecordingAudio) {
+        stopRecording(e);
+      } else {
+        startRecording(e);
+      }
+    });
   }
 
-  async function processAudio(audioBlob) {
+  async function lookupText(text) {
     try {
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "speech.wav");
-
-      // 1. Send to /listen (using English model since you are speaking English)
-      const listenRes = await fetch(`${API_BASE}/listen?language=en`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!listenRes.ok) throw new Error("Listen failed");
-      const listenData = await listenRes.json();
-
-      
-      const text = listenData.text;
-      if (!text) {
-        speechTranscript.innerText = "Could not understand audio.";
-        return;
-      }
-      
       speechTranscript.innerText = `"${text}"`;
 
-      // 2. Send to /lookup
+      // Send to /lookup
       const lookupRes = await fetch(`${API_BASE}/lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -284,12 +404,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!lookupRes.ok) throw new Error("Lookup failed");
       const lookupData = await lookupRes.json();
 
-      // 3. Play video sequence
+      // Play video sequence
       playSequence(lookupData.results);
 
     } catch (err) {
       console.error(err);
-      speechTranscript.innerText = "Error processing audio.";
+      speechTranscript.innerText = "Error playing videos.";
     }
   }
 
