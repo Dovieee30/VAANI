@@ -1,0 +1,8 @@
+{
+  "appId": "com.vaani.app",
+  "appName": "vaani",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  }
+}

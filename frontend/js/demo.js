@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const viewPanels = document.querySelectorAll('.view-panel');
 
-  const API_BASE = 'http://127.0.0.1:8000';
+  const API_BASE = 'http://10.29.82.162:8000';
 
   // Audio Queue
   const audioQueue = [];
@@ -63,9 +63,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const extractor = new MediaPipeExtractor(videoElement, canvasElement);
   
   try {
-    recognizedText.innerText = "Initializing Camera...";
-    await extractor.initialize();
-    await extractor.startWebcam();
+    recognizedText.innerText = "Opening Camera...";
+    await extractor.startWebcam(); // This opens the camera instantly!
+    
+    recognizedText.innerText = "Loading AI Models...";
+    await extractor.initialize();  // This downloads the heavy models in the background.
+    
     recognizedText.innerText = "Point camera to sign & tap Record";
   } catch (err) {
     console.error(err);
@@ -223,8 +226,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         audioSource = audioContext.createMediaStreamSource(currentStream);
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         
-        // Connect WebSocket
-        ws = new WebSocket('ws://127.0.0.1:8000/ws/listen?language=en');
+        // Connect WebSocket dynamically based on host
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`ws://10.29.82.162:8000/ws/listen?language=en`);
         finalResultText = "";
         currentPartialText = "";
         let wsErrorOccurred = false;
