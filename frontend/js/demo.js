@@ -214,21 +214,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const startRecording = async (e) => {
       if (e) e.preventDefault();
       console.log("Mic button clicked! Starting recording...");
-      if (isRecordingAudio || isConnecting) {
-          console.log("Ignored start: isRecordingAudio=" + isRecordingAudio + ", isConnecting=" + isConnecting);
-          return;
-      }
+      if (isRecordingAudio || isConnecting) return;
+      
       isConnecting = true;
-      speechTranscript.innerText = "Requesting mic...";
+      speechTranscript.innerText = `[1/4] Requesting mic... (Capacitor: ${isCapacitor})`;
       
       try {
         currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Mic access granted.");
+        speechTranscript.innerText = "[2/4] Mic granted. Setup AudioContext...";
         
-        // Initialize AudioContext (let the browser pick the native sample rate to avoid NotSupportedError)
+        // Initialize AudioContext
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioSource = audioContext.createMediaStreamSource(currentStream);
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+        
+        speechTranscript.innerText = "[3/4] Audio ready. Connecting to Server...";
         
         // Connect WebSocket dynamically
         let wsUrl;
@@ -238,6 +238,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
           wsUrl = `${wsProtocol}//${window.location.host}/ws/listen?language=en`;
         }
+        
+        speechTranscript.innerText = `[4/4] Connecting WS: ${wsUrl}...`;
         ws = new WebSocket(wsUrl);
         finalResultText = "";
         currentPartialText = "";
@@ -283,8 +285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         };
 
-        ws.onclose = () => {
-            console.log("WebSocket closed.");
+        ws.onclose = (event) => {
+            console.log("WebSocket closed.", event.code, event.reason);
             isRecordingAudio = false;
             isConnecting = false;
             if (wsErrorOccurred) return; // Don't overwrite the error message
@@ -298,7 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                speechTranscript.innerText = "Processing...";
                lookupText(combined.trim());
             } else {
-               speechTranscript.innerText = "No speech detected. Tap to try again.";
+               speechTranscript.innerText = `No speech detected. (Code: ${event.code})`;
             }
         };
         
