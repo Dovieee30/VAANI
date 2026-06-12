@@ -230,13 +230,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         speechTranscript.innerText = "[3/4] Audio ready. Connecting to Server...";
         
+        // Get selected language
+        const selectedLang = document.getElementById('language-select') ? document.getElementById('language-select').value : 'en';
+
         // Connect WebSocket dynamically
         let wsUrl;
         if (isCapacitor) {
-          wsUrl = `ws://${BACKEND_IP}/ws/listen?language=en`;
+          wsUrl = `ws://${BACKEND_IP}/ws/listen?language=${selectedLang}`;
         } else {
           const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          wsUrl = `${wsProtocol}//${window.location.host}/ws/listen?language=en`;
+          wsUrl = `${wsProtocol}//${window.location.host}/ws/listen?language=${selectedLang}`;
         }
         
         speechTranscript.innerText = `[4/4] Connecting WS: ${wsUrl}...`;
