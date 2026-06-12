@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VAANI — Indian Sign Language Interpreter</title>
+  <meta name="description" content="Real-time ISL interpreter. Sign in. Speak out. Free. Offline." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <!-- Shared CSS -->
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <link rel="stylesheet" href="/css/accessibility.css" />
+  
+  <style>
+    /* Specific styles for the Clean Hero & Demo Grid */
+    .clean-hero {
+      padding: 100px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--color-bg);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .clean-logo {
+      font-family: 'Fraunces', serif;
+      font-weight: 700;
+      font-size: clamp(3rem, 8vw, 5rem);
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+    }
+    .clean-logo .logo-vaa { color: var(--color-accent); }
+    .clean-logo .logo-ni { color: var(--color-ink); }
+
+    .clean-hero-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.4;
+      margin-bottom: 60px;
+      color: var(--color-ink);
+    }
+    .clean-hero-text em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--color-accent);
+    }
+
+    .btn-start-interpreter {
+      background: var(--color-ink);
+      color: var(--color-bg);
+      border: none;
+      padding: 18px 48px;
+      border-radius: 99px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      transition: transform 0.2s, background 0.2s;
+      margin-bottom: 60px;
+      margin-top: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-start-interpreter:hover {
+      background: #000;
+      transform: translateY(-2px);
+    }
+    .btn-start-interpreter:disabled {
+      background: #888;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Demo Grid */
+    .demo-grid {
+      width: 100%;
+      max-width: 1200px;
+      height: 70vh;
+      min-height: 600px;
+      display: none; /* Hidden until button click */
+      grid-template-rows: 1fr 1fr;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.1);
+      border: 1px solid rgba(26, 25, 22, 0.1);
+      margin-bottom: 40px;
+    }
+
+    .demo-top {
+      position: relative;
+      background: #000;
+      border-bottom: 2px solid var(--color-bg);
+    }
+
+    #demo-video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: none;
+      transform: scaleX(-1);
+    }
+
+    #landmarks-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      transform: scaleX(-1);
+    }
+
+    .demo-camera-ui {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      z-index: 5;
+      padding: 30px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+    }
+    
+    #recognized-text {
+      font-size: 2.2rem;
+      font-family: 'Fraunces', serif;
+      color: white;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      font-weight: 500;
+    }
+
+    .demo-bottom {
+      background: var(--color-surface);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .avatar-placeholder {
+      font-size: 6rem;
+      opacity: 0.8;
+      animation: bounce 2s infinite ease-in-out;
+    }
+
+    .speech-transcript {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      right: 30px;
+      text-align: center;
+      font-size: 1.4rem;
+      color: var(--color-ink);
+      background: var(--color-bg);
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      border: 1px solid rgba(26, 25, 22, 0.1);
+    }
+
+    .mic-button {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      background: var(--color-accent);
+      border: none;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(201, 78, 43, 0.3);
+      cursor: pointer;
+    }
+    
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" role="navigation">
+    <div class="nav__inner container">
+      <a href="/" class="nav__logo" aria-label="VAANI home">
+        <span class="nav__logo-mark" aria-hidden="true">V</span>
+        <span class="nav__logo-text">VAANI</span>
+      </a>
+      <ul class="nav__links" role="list">
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="#impact">Impact</a></li>
+        <li><a href="#about">About</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main id="main">
+    
+    <!-- Clean Hero Section with App Interface -->
+    <section class="clean-hero">
+      <div class="clean-logo">
+        <span class="logo-vaa">VAA</span><span class="logo-ni">NI</span>
+      </div>
+
+      <h1 class="clean-hero-text">
+        Every sign.<br />
+        <em>Every voice.</em>
+      </h1>
+
+      <a href="/app.html" id="start-demo-btn" class="btn-start-interpreter" style="text-decoration: none;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+        Start Interpreter
+      </a>
+    </section>
+
+    <!-- The Problem / Gap Section -->
+    <section class="gap-section" id="how-it-works">
+      <div class="container">
+        <div class="section-label" aria-hidden="true">The problem</div>
+        <h2 class="section-heading">350 interpreters.<br/>63 million people.</h2>
+        <p class="section-body">Every single day, millions of conversations don't happen — not because deaf people have nothing to say, but because no one built the bridge.</p>
+        <div class="gap-grid" role="list">
+          <div class="gap-card" role="listitem">
+            <div class="gap-card__icon" aria-hidden="true">🏥</div>
+            <h3 class="gap-card__title">Hospital</h3>
+            <p class="gap-card__body">A deaf patient sits across from a doctor. Neither can communicate. Symptoms go unexplained.</p>
+          </div>
+          <div class="gap-card" role="listitem">
+            <div class="gap-card__icon" aria-hidden="true">🏫</div>
+            <h3 class="gap-card__title">Classroom</h3>
+            <p class="gap-card__body">A deaf student has a question. Without an interpreter present, it stays unasked.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Impact Section -->
+    <section class="impact-section" id="impact">
+      <div class="container">
+        <div class="section-label" aria-hidden="true">The gap we close</div>
+        <h2 class="section-heading">The math is stark.</h2>
+        <div class="impact-grid" role="list">
+          <div class="impact-card impact-card--large" role="listitem">
+            <span class="impact-card__num" aria-label="63 million">63M</span>
+            <span class="impact-card__label">hearing-impaired Indians</span>
+            <span class="impact-card__note">World's largest deaf population</span>
+          </div>
+          <div class="impact-card" role="listitem">
+            <span class="impact-card__num" aria-label="4.5 million">4.5M</span>
+            <span class="impact-card__label">active ISL signers</span>
+          </div>
+          <div class="impact-card" role="listitem">
+            <span class="impact-card__num" aria-label="350">350</span>
+            <span class="impact-card__label">certified interpreters in India</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="gap-section" id="about" style="background: var(--color-surface); border-top: 1px solid var(--color-border);">
+      <div class="container">
+        <div class="section-label" aria-hidden="true">About VAANI</div>
+        <h2 class="section-heading">Built for privacy. Built for everyone.</h2>
+        <p class="section-body" style="max-width: 600px;">
+          VAANI isn't just an app; it's a movement to make communication a universal right. We believe that accessibility tools shouldn't rely on expensive cloud servers or high-speed internet. 
+          <br><br>
+          By leveraging cutting-edge Edge AI (MediaPipe) and running entirely locally on your device, VAANI guarantees total privacy and zero latency. It's offline, it's free, and it's designed specifically for the unique nuances of Indian Sign Language.
+        </p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" style="background: #000; padding: 60px 20px 40px;">
+      <div class="container" style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+        
+        <div class="footer__brand">
+          <span class="nav__logo-mark" aria-hidden="true" style="background: rgba(255,255,255,0.15);">V</span>
+          <span class="nav__logo-text" style="color: #fff;">VAANI</span>
+        </div>
+        
+        <p class="footer__tagline">Every sign. Every voice.</p>
+        
+        <div style="margin-top: 40px; display: flex; gap: 20px;">
+          <a href="#" style="color: rgba(255,255,255,0.6); font-size: 0.9rem; text-decoration: none;">Privacy Policy</a>
+          <a href="#" style="color: rgba(255,255,255,0.6); font-size: 0.9rem; text-decoration: none;">Terms of Service</a>
+          <a href="#" style="color: rgba(255,255,255,0.6); font-size: 0.9rem; text-decoration: none;">Contact Us</a>
+        </div>
+        
+        <p class="footer__copy" style="margin-top: 40px;">&copy; 2026 VAANI. All rights reserved.</p>
+      </div>
+    </footer>
+
+  </main>
+</body>
+</html>

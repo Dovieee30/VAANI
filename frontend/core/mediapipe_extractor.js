@@ -16,9 +16,16 @@ export class MediaPipeExtractor {
     
     // We keep a buffer of the last 30 frames
     this.frameBuffer = [];
-    this.maxFrames = 30;
+    this.maxFrames = 30; // Unused directly due to 90 frame logic
     
     this.onSequenceReady = null; // Callback when 30 frames are ready
+    this.isPaused = false;
+
+    // Zero-order hold to prevent zero-spiking when hands flicker out
+    this.lastPose = new Array(33 * 4).fill(0);
+    this.lastFace = new Array(468 * 3).fill(0);
+    this.lastLeftHand = new Array(21 * 3).fill(0);
+    this.lastRightHand = new Array(21 * 3).fill(0);
   }
 
   async initialize() {
@@ -85,13 +92,25 @@ export class MediaPipeExtractor {
 
   startRecording(callback) {
     this.isRecording = true;
+    this.isPaused = false;
     this.frameBuffer = [];
     this.onSequenceReady = callback;
     console.log("Started recording a sign sequence...");
   }
 
+  pauseRecording() {
+    this.isPaused = true;
+    console.log("Paused recording...");
+  }
+
+  resumeRecording() {
+    this.isPaused = false;
+    console.log("Resumed recording...");
+  }
+
   stopRecording() {
     this.isRecording = false;
+    this.isPaused = false;
   }
 
   async predictWebcam() {
@@ -119,16 +138,18 @@ export class MediaPipeExtractor {
     this.canvasCtx.save();
     this.canvasCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 
-    // If we are recording, save the flat landmarks
-    if (this.isRecording) {
+    // If we are recording and not paused, save the flat landmarks
+    if (this.isRecording && !this.isPaused) {
       const flatFrame = this.flattenLandmarks(results);
       this.frameBuffer.push(flatFrame);
       
-      if (this.frameBuffer.length >= this.maxFrames) {
+      // The INCLUDE model was trained on 169 frames. 30 frames is too short.
+      // We collect 90 frames (3 sec) and slide by 30 frames (1 sec overlap).
+      if (this.frameBuffer.length >= 90) {
         if (this.onSequenceReady) {
-          this.onSequenceReady(this.frameBuffer); // Send 30 frames
+          this.onSequenceReady(this.frameBuffer); // Send 90 frames
         }
-        this.frameBuffer = []; // Reset buffer
+        this.frameBuffer = this.frameBuffer.slice(30); // Keep last 60 for overlap
       }
     }
 
@@ -169,45 +190,47 @@ export class MediaPipeExtractor {
 
   flattenLandmarks(results) {
     // 543 landmarks in total (Pose: 33, Face: 468, LeftHand: 21, RightHand: 21)
-    // Format required for LSTM: [33*4 + 468*3 + 21*3 + 21*3] = 1662 coordinates
-    // We'll flatten x,y,z (and visibility for pose if needed)
-    
+    // Carry forward last known states to prevent flickering [0,0] spikes.
     const frameData = [];
     
     // 1. Pose Landmarks (33 * 4 = 132)
     if (results.poseLandmarks && results.poseLandmarks.length > 0) {
-      results.poseLandmarks[0].forEach(l => {
-        frameData.push(l.x, l.y, l.z, l.visibility || 0);
-      });
+      const pose = [];
+      results.poseLandmarks[0].forEach(l => pose.push(l.x, l.y, l.z, l.visibility || 0));
+      this.lastPose = pose;
+      frameData.push(...pose);
     } else {
-      for (let i = 0; i < 33 * 4; i++) frameData.push(0);
+      frameData.push(...this.lastPose);
     }
     
     // 2. Face Landmarks (468 * 3 = 1404)
     if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-      results.faceLandmarks[0].forEach(l => {
-        frameData.push(l.x, l.y, l.z);
-      });
+      const face = [];
+      results.faceLandmarks[0].slice(0, 468).forEach(l => face.push(l.x, l.y, l.z));
+      this.lastFace = face;
+      frameData.push(...face);
     } else {
-      for (let i = 0; i < 468 * 3; i++) frameData.push(0);
+      frameData.push(...this.lastFace);
     }
     
     // 3. Left Hand (21 * 3 = 63)
     if (results.leftHandLandmarks && results.leftHandLandmarks.length > 0) {
-      results.leftHandLandmarks[0].forEach(l => {
-        frameData.push(l.x, l.y, l.z);
-      });
+      const leftHand = [];
+      results.leftHandLandmarks[0].forEach(l => leftHand.push(l.x, l.y, l.z));
+      this.lastLeftHand = leftHand;
+      frameData.push(...leftHand);
     } else {
-      for (let i = 0; i < 21 * 3; i++) frameData.push(0);
+      frameData.push(...this.lastLeftHand);
     }
     
     // 4. Right Hand (21 * 3 = 63)
     if (results.rightHandLandmarks && results.rightHandLandmarks.length > 0) {
-      results.rightHandLandmarks[0].forEach(l => {
-        frameData.push(l.x, l.y, l.z);
-      });
+      const rightHand = [];
+      results.rightHandLandmarks[0].forEach(l => rightHand.push(l.x, l.y, l.z));
+      this.lastRightHand = rightHand;
+      frameData.push(...rightHand);
     } else {
-      for (let i = 0; i < 21 * 3; i++) frameData.push(0);
+      frameData.push(...this.lastRightHand);
     }
     
     return frameData;
