@@ -221,8 +221,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("Mic access granted.");
         
-        // Initialize AudioContext at 16kHz
-        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        // Initialize AudioContext (let the browser pick the native sample rate to avoid NotSupportedError)
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioSource = audioContext.createMediaStreamSource(currentStream);
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
       } catch (err) {
         console.error("Microphone error:", err);
-        speechTranscript.innerText = "Microphone error. Please allow permissions.";
+        speechTranscript.innerText = `Microphone error: ${err.message || err.name || err}. Please check permissions.`;
         isConnecting = false;
       }
     };
