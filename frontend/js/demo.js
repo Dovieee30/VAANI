@@ -11,7 +11,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const viewPanels = document.querySelectorAll('.view-panel');
 
-  const API_BASE = 'http://10.29.82.162:8000';
+  // If running as a native Capacitor app, there is no Vite proxy, so we must point directly to the backend IP.
+  // Otherwise, we rely on the Vite dev server proxy using empty string.
+  const isCapacitor = typeof window.Capacitor !== 'undefined';
+  const BACKEND_IP = '10.29.82.162:8000';
+  const API_BASE = isCapacitor ? `http://${BACKEND_IP}` : '';
 
   // Audio Queue
   const audioQueue = [];
@@ -226,9 +230,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         audioSource = audioContext.createMediaStreamSource(currentStream);
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         
-        // Connect WebSocket dynamically based on host
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`ws://10.29.82.162:8000/ws/listen?language=en`);
+        // Connect WebSocket dynamically
+        let wsUrl;
+        if (isCapacitor) {
+          wsUrl = `ws://${BACKEND_IP}/ws/listen?language=en`;
+        } else {
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          wsUrl = `${wsProtocol}//${window.location.host}/ws/listen?language=en`;
+        }
+        ws = new WebSocket(wsUrl);
         finalResultText = "";
         currentPartialText = "";
         let wsErrorOccurred = false;
