@@ -317,17 +317,22 @@ async def websocket_listen(websocket: WebSocket, language: str = "en"):
         while True:
             data = await websocket.receive_bytes()
             
-            # Feed raw PCM chunk to Vosk
-            if recognizer.AcceptWaveform(data):
-                res = json.loads(recognizer.Result())
-                text = res.get("text", "")
-                if text:
-                    await websocket.send_json({"type": "final", "text": text})
-            else:
-                res = json.loads(recognizer.PartialResult())
-                partial = res.get("partial", "")
-                if partial:
-                    await websocket.send_json({"type": "partial", "text": partial})
+            import asyncio
+            try:
+                # Feed raw PCM chunk to Vosk in a separate thread so it doesn't block the WebSocket loop!
+                is_final = await asyncio.to_thread(recognizer.AcceptWaveform, data)
+                if is_final:
+                    res = json.loads(recognizer.Result())
+                    text = res.get("text", "")
+                    if text:
+                        await websocket.send_json({"type": "final", "text": text})
+                else:
+                    res = json.loads(recognizer.PartialResult())
+                    partial = res.get("partial", "")
+                    if partial:
+                        await websocket.send_json({"type": "partial", "text": partial})
+            except Exception as e:
+                logger.error(f"Vosk processing error: {e}")
     except WebSocketDisconnect:
         # Flush any remaining audio in Vosk's buffer
         try:
