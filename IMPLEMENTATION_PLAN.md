@@ -198,3 +198,5 @@ npx cap open android
 | Say "पानी दो" into mic | ISL video for "water" + "give" plays on screen |
 | Word not in iSign | Fingerspelling fallback A-Z plays |
 | Backend down | Frontend shows "Server not reachable" gracefully |
+
+
