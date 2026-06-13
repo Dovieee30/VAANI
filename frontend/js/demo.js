@@ -11,7 +11,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const viewPanels = document.querySelectorAll('.view-panel');
 
-  const API_BASE = 'http://10.29.82.162:8000';
+  // If running as a native Capacitor app, there is no Vite proxy, so we must point directly to the backend IP.
+  // Otherwise, we rely on the Vite dev server proxy using empty string.
+  const isCapacitor = typeof window.Capacitor !== 'undefined';
+  const BACKEND_IP = '10.29.82.162:8000';
+  const API_BASE = isCapacitor ? `http://${BACKEND_IP}` : '';
 
   // Audio Queue
   const audioQueue = [];
@@ -210,25 +214,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     const startRecording = async (e) => {
       if (e) e.preventDefault();
       console.log("Mic button clicked! Starting recording...");
-      if (isRecordingAudio || isConnecting) {
-          console.log("Ignored start: isRecordingAudio=" + isRecordingAudio + ", isConnecting=" + isConnecting);
-          return;
-      }
+      if (isRecordingAudio || isConnecting) return;
+      
       isConnecting = true;
-      speechTranscript.innerText = "Requesting mic...";
+      speechTranscript.innerText = `[1/4] Requesting mic... (Capacitor: ${isCapacitor})`;
       
       try {
         currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Mic access granted.");
+        speechTranscript.innerText = "[2/4] Mic granted. Setup AudioContext...";
         
-        // Initialize AudioContext (let the browser pick the native sample rate to avoid NotSupportedError)
+        // Initialize AudioContext
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioSource = audioContext.createMediaStreamSource(currentStream);
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         
-        // Connect WebSocket dynamically based on host
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`ws://10.29.82.162:8000/ws/listen?language=en`);
+        speechTranscript.innerText = "[3/4] Audio ready. Connecting to Server...";
+        
+        // Get selected language
+        const selectedLang = document.getElementById('language-select') ? document.getElementById('language-select').value : 'en';
+
+        // Connect WebSocket dynamically
+        let wsUrl;
+        if (isCapacitor) {
+          wsUrl = `ws://${BACKEND_IP}/ws/listen?language=${selectedLang}`;
+        } else {
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          wsUrl = `${wsProtocol}//${window.location.host}/ws/listen?language=${selectedLang}`;
+        }
+        
+        speechTranscript.innerText = `[4/4] Connecting WS: ${wsUrl}...`;
+        ws = new WebSocket(wsUrl);
         finalResultText = "";
         currentPartialText = "";
         let wsErrorOccurred = false;
@@ -273,8 +288,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         };
 
-        ws.onclose = () => {
-            console.log("WebSocket closed.");
+        ws.onclose = (event) => {
+            console.log("WebSocket closed.", event.code, event.reason);
             isRecordingAudio = false;
             isConnecting = false;
             if (wsErrorOccurred) return; // Don't overwrite the error message
@@ -288,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                speechTranscript.innerText = "Processing...";
                lookupText(combined.trim());
             } else {
-               speechTranscript.innerText = "No speech detected. Tap to try again.";
+               speechTranscript.innerText = `No speech detected. (Code: ${event.code})`;
             }
         };
         
