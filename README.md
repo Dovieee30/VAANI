@@ -19,26 +19,26 @@ VAANI features two distinct pipelines to ensure smooth, two-way communication:
 ```mermaid
 graph TD
     %% Frontend Components
-    subgraph Frontend [Mobile App - Capacitor + Vanilla JS]
-        UI[User Interface]
-        Cam[Camera Input]
-        Mic[Microphone Input]
-        MediaPipe[MediaPipe Holistic]
-        VideoPlayer[ISL Video Player]
+    subgraph Frontend ["Mobile App - Capacitor + Vanilla JS"]
+        UI["User Interface"]
+        Cam["Camera Input"]
+        Mic["Microphone Input"]
+        MediaPipe["MediaPipe Holistic"]
+        VideoPlayer["ISL Video Player"]
     end
 
     %% Backend Components
-    subgraph Backend [FastAPI Server]
-        API[REST & WebSocket API]
+    subgraph Backend ["FastAPI Server"]
+        API["REST & WebSocket API"]
         
-        subgraph Pipeline1 [Sign to Speech]
-            IncludeModel[INCLUDE AI Model]
-            TTS[gTTS Engine]
+        subgraph Pipeline1 ["Sign to Speech"]
+            IncludeModel["INCLUDE AI Model"]
+            TTS["gTTS Engine"]
         end
         
-        subgraph Pipeline2 [Speech to Sign]
-            Vosk[Vosk Speech Recognition]
-            ISign[iSign Video Lookup]
+        subgraph Pipeline2 ["Speech to Sign"]
+            Vosk["Vosk Speech Recognition"]
+            ISign["iSign Video Lookup"]
         end
     end
 
