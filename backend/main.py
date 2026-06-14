@@ -31,11 +31,11 @@ CORS middleware tells the browser: "It's okay, allow these requests."
 HOW TO RUN THIS SERVER:
     cd backend
     pip install -r requirements.txt
-    uvicorn main:app --reload --port 8000
+    uvicorn main:app --host 0.0.0.0 --reload --port 8000
 
-    --reload  = auto-restarts when you change code (for development)
-    --port    = which port to listen on
-    main:app  = look in main.py for the variable called 'app'
+    --host 0.0.0.0 = allow devices on your Wi-Fi (like your phone) to connect
+    --reload       = auto-restarts when you change code (for development)
+    --port 8000    = which port to listen on
 """
 
 import json
