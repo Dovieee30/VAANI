@@ -220,11 +220,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       speechTranscript.innerText = `[1/4] Requesting mic... (Capacitor: ${isCapacitor})`;
       
       try {
+        const _startMicTime = Date.now();
         currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const _micTimeTaken = Date.now() - _startMicTime;
+        
+        // Android WebView Bug Workaround: If a permission prompt was shown (took > 500ms),
+        // the app went to the background. We must wait a moment before opening a WebSocket,
+        // otherwise the network request gets permanently suspended.
+        if (_micTimeTaken > 500) {
+            console.log("Permission prompt detected. Waiting 500ms for network to resume...");
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         speechTranscript.innerText = "[2/4] Mic granted. Setup AudioContext...";
         
         // Initialize AudioContext
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
         audioSource = audioContext.createMediaStreamSource(currentStream);
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         
@@ -248,7 +262,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentPartialText = "";
         let wsErrorOccurred = false;
         
+        let connectionTimeout = setTimeout(() => {
+          if (ws.readyState !== WebSocket.OPEN) {
+            console.error("WebSocket connection timed out.");
+            wsErrorOccurred = true;
+            speechTranscript.innerText = "Connection timed out. Run backend with --host 0.0.0.0";
+            ws.close();
+            isRecordingAudio = false;
+            isConnecting = false;
+          }
+        }, 5000); // 5 second timeout
+        
         ws.onopen = () => {
+          clearTimeout(connectionTimeout);
           console.log("WebSocket connected.");
           
           // Connect nodes to start capturing without causing feedback echo
@@ -267,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         
         ws.onerror = (error) => {
+          clearTimeout(connectionTimeout);
           console.error("WebSocket Error:", error);
           wsErrorOccurred = true;
           speechTranscript.innerText = "Error connecting to server. Is backend running?";
@@ -289,6 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         ws.onclose = (event) => {
+            clearTimeout(connectionTimeout);
             console.log("WebSocket closed.", event.code, event.reason);
             isRecordingAudio = false;
             isConnecting = false;
