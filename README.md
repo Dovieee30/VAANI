@@ -17,34 +17,28 @@ VAANI features two distinct pipelines to ensure smooth, two-way communication:
 ## Architecture Flow
 
 ```mermaid
-graph LR
-    DeafUser((Deaf User))
-    HearingUser((Hearing User))
+flowchart TD
+    DeafUser([Deaf User])
+    HearingUser([Hearing User])
 
-    subgraph Pipeline1 [Pipeline 1: Sign to Speech]
-        direction TB
-        P1_Cam[📷 Signs into Camera] --> P1_MP[✋ MediaPipe Landmarks]
-        P1_MP --> P1_AI[🧠 INCLUDE AI Predicts Word]
-        P1_AI --> P1_TTS[🔊 Text-to-Speech Engine]
+    subgraph Pipeline 1: Sign to Speech
+        Cam[📷 Camera] --> MP[✋ MediaPipe]
+        MP --> Include[🧠 INCLUDE AI Model]
+        Include --> TTS[🔊 Text-to-Speech]
     end
 
-    subgraph Pipeline2 [Pipeline 2: Speech to Sign]
-        direction TB
-        P2_Mic[🎙️ Speaks into Mic] --> P2_ASR[🤖 Vosk Speech-to-Text]
-        P2_ASR --> P2_DB[📂 iSign Database Lookup]
-        P2_DB --> P2_Dec{Video Found?}
-        P2_Dec -->|Yes| P2_Play[🎞️ Play ISL Video]
-        P2_Dec -->|No| P2_Text[📝 Show Text & Fingerspell]
+    subgraph Pipeline 2: Speech to Sign
+        Mic[🎙️ Microphone] --> Vosk[🤖 Vosk ASR]
+        Vosk --> DB[📂 iSign Database]
+        DB --> Video[🎞️ ISL Video Player]
     end
 
-    %% Flow 1 (Left to Right)
-    DeafUser --> P1_Cam
-    P1_TTS --> HearingUser
+    %% Connect Users to Pipelines
+    DeafUser -.->|"1. Signs"| Cam
+    TTS -.->|"2. Hears"| HearingUser
 
-    %% Flow 2 (Right to Left)
-    HearingUser --> P2_Mic
-    P2_Play --> DeafUser
-    P2_Text --> DeafUser
+    HearingUser -.->|"3. Speaks"| Mic
+    Video -.->|"4. Watches"| DeafUser
 ```
 
 ## Tech Stack
