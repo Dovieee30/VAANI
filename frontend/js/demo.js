@@ -195,8 +195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // PIPELINE 2: SPEECH-TO-SIGN LOGIC
   // ==========================================
   const micButton = document.getElementById('mic-button');
-  const avatarPlaceholder = document.getElementById('avatar-placeholder');
-  const signPlayer = document.getElementById('sign-player');
   const speechTranscript = document.getElementById('speech-transcript');
 
   let audioContext = null;
@@ -328,8 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 combined += (combined ? " " : "") + currentPartialText;
             }
             if (combined.trim()) {
-               speechTranscript.innerText = "Processing...";
-               lookupText(combined.trim());
+               speechTranscript.innerText = `You said: "${combined.trim()}"`;
             } else {
                speechTranscript.innerText = `No speech detected. (Code: ${event.code})`;
             }
@@ -438,114 +435,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  async function lookupText(text) {
-    try {
-      speechTranscript.innerText = `"${text}"`;
 
-      // Send to /lookup
-      const lookupRes = await fetch(`${API_BASE}/lookup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text })
-      });
-      if (!lookupRes.ok) throw new Error("Lookup failed");
-      const lookupData = await lookupRes.json();
-
-      // Play video sequence
-      playSequence(lookupData.results);
-
-    } catch (err) {
-      console.error(err);
-      speechTranscript.innerText = "Error playing videos.";
-    }
-  }
-
-  function playSequence(results) {
-    if (!results || results.length === 0) return;
-    
-    // Hide avatar, show player
-    avatarPlaceholder.classList.add('hidden');
-    signPlayer.classList.remove('hidden');
-
-    let currentIndex = 0;
-
-    function playNext() {
-      if (currentIndex >= results.length) {
-        // Finished playing all videos
-        setTimeout(() => {
-          signPlayer.classList.add('hidden');
-          avatarPlaceholder.classList.remove('hidden');
-          speechTranscript.innerText = "Tap mic to speak again.";
-        }, 1000);
-        return;
-      }
-
-      const item = results[currentIndex];
-      
-      if (item.type === 'video' && item.url) {
-        speechTranscript.innerHTML = `<strong>${item.word.toUpperCase()}</strong>`;
-        signPlayer.src = item.url;
-        signPlayer.onended = () => {
-          currentIndex++;
-          playNext();
-        };
-        signPlayer.play().catch(err => {
-          console.error("Video play error:", err);
-          currentIndex++;
-          playNext();
-        });
-      } else if (item.type === 'text') {
-        // Fallback Level 3: Show Text
-        signPlayer.classList.add('hidden');
-        avatarPlaceholder.classList.remove('hidden');
-        speechTranscript.innerHTML = `[ ${item.word.toUpperCase()} ]`;
-        
-        setTimeout(() => {
-          signPlayer.classList.remove('hidden');
-          avatarPlaceholder.classList.add('hidden');
-          currentIndex++;
-          playNext();
-        }, 1500); // Wait 1.5 seconds for text reading
-      } else if (item.type === 'fingerspell') {
-        // Fallback Level 4: Fingerspell Letters
-        playFingerspell(item.word, item.letters, () => {
-          currentIndex++;
-          playNext();
-        });
-      } else {
-        currentIndex++;
-        playNext();
-      }
-    }
-
-    function playFingerspell(word, letters, onComplete) {
-      let lIndex = 0;
-      function playNextLetter() {
-        if (lIndex >= letters.length) {
-          onComplete();
-          return;
-        }
-        const lItem = letters[lIndex];
-        speechTranscript.innerHTML = `<strong>${word.toUpperCase()}</strong><br><small>Letter: ${lItem.letter.toUpperCase()}</small>`;
-        
-        if (lItem.url) {
-          signPlayer.src = lItem.url;
-          signPlayer.onended = () => {
-            lIndex++;
-            playNextLetter();
-          };
-          signPlayer.play().catch(err => {
-            lIndex++;
-            playNextLetter();
-          });
-        } else {
-          lIndex++;
-          playNextLetter();
-        }
-      }
-      playNextLetter();
-    }
-
-    playNext();
-  }
 });

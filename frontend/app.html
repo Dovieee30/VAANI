@@ -95,37 +95,24 @@
       text-align: center;
     }
 
-    /* Speak View (Avatar) */
-    .avatar-placeholder {
-      font-size: 8rem;
-      opacity: 0.8;
-      animation: bounce 2s infinite ease-in-out;
-      margin-bottom: 120px;
-    }
-
-    #sign-player {
-      width: 90%;
-      max-width: 600px;
-      height: 40vh;
-      min-height: 300px;
-      object-fit: cover;
-      border-radius: 24px;
-      margin-bottom: 60px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.15);
-      background: #000;
-    }
+    /* Speak View (Microphone & Text Only) */
 
     .speech-transcript {
       text-align: center;
       font-size: 1.8rem;
       color: var(--color-ink);
       background: var(--color-bg);
-      padding: 24px;
+      padding: 32px;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
       border: 1px solid rgba(26, 25, 22, 0.1);
-      max-width: 80%;
-      margin-bottom: 200px; /* Moved up to make room for mic button */
+      width: 90%;
+      max-width: 600px;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 120px; /* Moved up to make room for mic button */
     }
 
     /* Camera Controls */
@@ -273,10 +260,7 @@
       backdrop-filter: blur(8px);
     }
 
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
+
   </style>
 </head>
 <body>
@@ -316,8 +300,6 @@
       <button class="mic-button" id="mic-button" aria-label="Tap to speak">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
       </button>
-      <video id="sign-player" class="hidden" playsinline muted></video>
-      <div class="avatar-placeholder" id="avatar-placeholder"></div>
       <div class="speech-transcript" id="speech-transcript">"Hello, how can I help you?"</div>
     </div>
 
