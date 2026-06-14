@@ -18,47 +18,27 @@ VAANI features two distinct pipelines to ensure smooth, two-way communication:
 
 ```mermaid
 graph TD
-    %% Frontend Components
-    subgraph Frontend ["Mobile App - Capacitor + Vanilla JS"]
-        UI["User Interface"]
-        Cam["Camera Input"]
-        Mic["Microphone Input"]
-        MediaPipe["MediaPipe Holistic"]
-        VideoPlayer["ISL Video Player"]
-    end
-
-    %% Backend Components
-    subgraph Backend ["FastAPI Server"]
-        API["REST & WebSocket API"]
-        
-        subgraph Pipeline1 ["Sign to Speech"]
-            IncludeModel["INCLUDE AI Model"]
-            TTS["gTTS Engine"]
-        end
-        
-        subgraph Pipeline2 ["Speech to Sign"]
-            Vosk["Vosk Speech Recognition"]
-            ISign["iSign Video Lookup"]
-        end
-    end
-
-    %% Flow 1: Sign to Speech
-    Cam --> MediaPipe
-    MediaPipe -- "Extracts Landmarks" --> UI
-    UI -- "POST /predict" --> API
-    API --> IncludeModel
-    IncludeModel -- "Text Prediction" --> API
-    API -- "POST /speak" --> TTS
-    TTS -- "Audio File" --> UI
+    DeafUser([Deaf User])
     
-    %% Flow 2: Speech to Sign
-    Mic --> UI
-    UI -- "WS /ws/listen" --> API
-    API --> Vosk
-    Vosk -- "Speech to Text" --> API
-    API -- "POST /lookup" --> ISign
-    ISign -- "Video URLs" --> API
-    API --> VideoPlayer
+    DeafUser --> SignsToCam[Signs into Camera]
+    SignsToCam --> Extract[MediaPipe Extracts Landmarks]
+    Extract --> Predict[INCLUDE AI Predicts Word]
+    Predict --> TTS[Text-to-Speech Engine]
+    TTS --> PlaysAudio[Plays Audio on Speaker]
+    
+    PlaysAudio --> HearingUser([Hearing User])
+    
+    HearingUser --> SpeaksToMic[Speaks into Microphone]
+    SpeaksToMic --> ASR[Vosk Converts Speech to Text]
+    ASR --> Lookup[iSign Database Lookup]
+    
+    Lookup --> Found{Video Found?}
+    
+    Found -->|Yes| PlayISL[Play ISL Video Sequence]
+    Found -->|No| ShowText[Fallback: Show Text & Fingerspell]
+    
+    PlayISL --> DeafUser
+    ShowText --> DeafUser
 ```
 
 ## Tech Stack
